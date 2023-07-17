@@ -129,15 +129,10 @@ cv = list(cv) # split の返り値は generator なので list 化して何度�
 def fit_lgbm(X, y, cv, params: dict=None, verbose: int=50):
     """lightGBM を CrossValidation の枠組みで学習を行なう function"""
 
-    # パラメータがないときは、空の dict で置き換える
-    if params is None:
-        params = {}
-
     models = []
     n_records = len(X)
     # training data の target と同じだけのゼロ配列を用意
     oof_pred = np.zeros((n_records, ), dtype=np.float32)
-
 
     for i, (idx_train, idx_valid) in enumerate(cv): 
         # この部分が交差検証のところです。データセットを cv instance によって分割します
@@ -153,8 +148,8 @@ def fit_lgbm(X, y, cv, params: dict=None, verbose: int=50):
             clf.fit(x_train, y_train, 
                     eval_set=[(x_valid, y_valid)],  
                     callbacks=[
-                        lgbm.early_stopping(stopping_rounds=50, verbose=True),
-                        lgbm.log_evaluation(100),
+                        lgbm.early_stopping(stopping_rounds=100, verbose=True),
+                        lgbm.log_evaluation(10),
                         ],
                     )
 
