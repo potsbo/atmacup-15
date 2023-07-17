@@ -8,8 +8,12 @@ import numpy as np
 
 from contextlib import contextmanager
 from time import time
-import matplotlib.pyplot as plt
-import seaborn as sns
+from sklearn.model_selection import StratifiedKFold
+import lightgbm as lgbm
+from sklearn.metrics import mean_squared_error
+
+INPUT_DIR = "/Users/potsbo/.go/src/github.com/potsbo/atmacup-15/dataset"
+OUTPUT_DIR = "/Users/potsbo/.go/src/github.com/potsbo/atmacup-15/output"
 
 class Timer:
     def __init__(self, logger=None, format_str="{:.3f}[s]", prefix=None, suffix=None, sep=" "):
@@ -38,12 +42,16 @@ class Timer:
         else:
             print(out_str)
 
-INPUT_DIR = "/Users/potsbo/.go/src/github.com/potsbo/atmacup-15/dataset"
-OUTPUT_DIR = "/Users/potsbo/.go/src/github.com/potsbo/atmacup-15/output"
 
 def read_csv(name: str, **kwrgs) -> pd.DataFrame:
     p = os.path.join(INPUT_DIR, name + ".csv")
     return pd.read_csv(p, **kwrgs)
+
+
+def root_mean_squared_error(y_true, y_pred):
+    """mean_squared_error の root (0.5乗)"""
+    return mean_squared_error(y_true, y_pred) ** .5
+
 
 anime_df = read_csv("anime")
 train_df = read_csv("train")
@@ -56,6 +64,11 @@ def merge_by_anime_id(left_df, right_df):
 def create_anime_numeric_feature(input_df: pd.DataFrame):
     use_columns = [
         "members", 
+        "plan_to_watch",
+        "dropped",
+        "on_hold",
+        "completed",
+        "watching",
     ]
     
     return merge_by_anime_id(input_df, anime_df)[use_columns]
@@ -77,16 +90,9 @@ def create_anime_type_one_hot_encoding(input_df):
     
     return merge_by_anime_id(input_df, out_df)
 
-print(create_anime_type_one_hot_encoding(train_df))
-print(create_anime_type_one_hot_encoding(train_df).columns)
-
 def create_feature(input_df):
-    
-    # functions に特徴量作成関数を配列で定義しました.
-    # どの関数も同じ input / output のインターフェイスなので for で回せて嬉しいですね ;)
     functions = [
         create_anime_numeric_feature,
-        # create_anime_type_count_encoding,
         create_anime_type_one_hot_encoding,
     ]
     
@@ -99,8 +105,6 @@ def create_feature(input_df):
         
     return out_df
 
-print(create_feature(train_df))
-
 with Timer(prefix="train..."):
     train_feat_df = create_feature(train_df)
 
@@ -109,27 +113,13 @@ with Timer(prefix="test..."):
 
 X = train_feat_df.values
 y = train_df["score"].values
-print(X,y)
-
-
-from sklearn.model_selection import StratifiedKFold
 
 fold = StratifiedKFold(n_splits=5, shuffle=True, random_state=510)
 cv = fold.split(X, y)
 cv = list(cv) # split の返り値は generator なので list 化して何度も iterate できるようにしておく
-from sklearn.metrics import mean_squared_error
 
-def root_mean_squared_error(y_true, y_pred):
-    """mean_squared_error の root (0.5乗)"""
-    return mean_squared_error(y_true, y_pred) ** .5
 
-import lightgbm as lgbm
-
-def fit_lgbm(X, 
-             y, 
-             cv, 
-             params: dict=None, 
-             verbose: int=50):
+def fit_lgbm(X, y, cv, params: dict=None, verbose: int=50):
     """lightGBM を CrossValidation の枠組みで学習を行なう function"""
 
     # パラメータがないときは、空の dict で置き換える
@@ -196,13 +186,9 @@ oof, models = fit_lgbm(X, y=y, params=params, cv=cv)
 print(root_mean_squared_error(y_true=y, y_pred=oof))
 
 # k 個のモデルの予測を作成. shape = (5, N_test,).
-
 pred = np.array([model.predict(test_feat_df.values) for model in models])
-print("pred 1")
-
 # k 個のモデルの予測値の平均 shape = (N_test,).
 pred = np.mean(pred, axis=0) # axis=0 なので shape の `k` が潰れる
-print("pred 2")
 
 pd.DataFrame({
     "score": pred
