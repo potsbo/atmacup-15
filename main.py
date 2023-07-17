@@ -206,3 +206,18 @@ params = {
 }
 
 oof, models = fit_lgbm(X, y=y, params=params, cv=cv)
+
+print(root_mean_squared_error(y_true=y, y_pred=oof))
+
+# k 個のモデルの予測を作成. shape = (5, N_test,).
+
+pred = np.array([model.predict(test_feat_df.values) for model in models])
+print("pred 1")
+
+# k 個のモデルの予測値の平均 shape = (N_test,).
+pred = np.mean(pred, axis=0) # axis=0 なので shape の `k` が潰れる
+print("pred 2")
+
+pd.DataFrame({
+    "score": pred
+}).to_csv(os.path.join(OUTPUT_DIR, "#1__submission.csv"), index=False)
