@@ -32,20 +32,15 @@ def add_w2v_features(train_df, val_df, test_df=None, consider_score=True):
     anime_ids = train_df['anime_id'].unique().tolist()
     user_anime_list_dict = {user_id: anime_ids.tolist() for user_id, anime_ids in train_df.groupby('user_id')['anime_id']}
 
-    # スコアを考慮する場合
-    # 今回は1～10のレーティングなので、スコアが5のアニメは5回、スコアが10のアニメは10回、タイトルをリストに追加する
-    if consider_score:
-        title_sentence_list = []
-        for user_id, user_df in train_df.groupby('user_id'):
-            user_title_sentence_list = []
-            for anime_id, anime_score in user_df[['anime_id', 'score']].values:
-                for i in range(anime_score):
-                    user_title_sentence_list.append(anime_id)
-            title_sentence_list.append(user_title_sentence_list)
-    # スコアを考慮しない場合
-    # タイトルをそのままリストに追加する
-    else:
-        title_sentence_list = train_df.groupby('user_id')['anime_id'].apply(list).tolist()
+
+    title_sentence_list = []
+    for _user_id, user_df in train_df.groupby('user_id'):
+        user_title_sentence_list = []
+        for anime_id, anime_score in user_df[['anime_id', 'score']].values:
+            for i in range(anime_score):
+                user_title_sentence_list.append(anime_id)
+        title_sentence_list.append(user_title_sentence_list)
+
 
     # ユーザごとにshuffleしたリストを作成
     shuffled_sentence_list = [random.sample(sentence, len(sentence)) for sentence in title_sentence_list]  ## <= 変更点
@@ -179,13 +174,17 @@ def train(train_df, original_test_df, submission_df, consider_score=True):
     total_score = np.sqrt(mean_squared_error(train_df['score'], train_df['oof']))
     print(f"Total RMSE: {total_score}")
 
-    submission_df.to_csv('./dataset/submission.csv', index=False)
+    submission_df.to_csv('./output/submission.csv', index=False)
 
-with timer("Load the data"):
-    train_df, test_df, submission_df = load_data()
+def main():
+    with timer("Load the data"):
+        train_df, test_df, submission_df = load_data()
 
-with timer("Stratified & Group split"):
-    train_df = stratified_and_group_kfold_split(train_df)
+    with timer("Stratified & Group split"):
+        train_df = stratified_and_group_kfold_split(train_df)
 
-with timer("Training and evaluation with LightGBM"):
-    train(train_df, test_df, submission_df, consider_score=True)
+    with timer("Training and evaluation with LightGBM"):
+        train(train_df, test_df, submission_df, consider_score=True)
+
+if __name__ == "__main__":
+    main()
