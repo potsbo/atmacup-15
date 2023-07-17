@@ -7,6 +7,18 @@ stop_words = set([
     '(', ')', '"', "'", "!", "!!"
     ])
 
+class Word():
+    def __init__(self, line):
+        l = line.split("\t")
+        self.w = l[0]
+        ts = l[1].split(",")
+        self.hinshi = ts[0]
+
+    def valid(self):
+        return self.w not in stop_words and self.hinshi != "助詞"
+        
+        
+
 def tokenize(s):
     if s in cache:
         return cache[s]
@@ -17,8 +29,8 @@ def tokenize(s):
     lines = result.stdout.decode().split("\n")
     lines.pop()
     lines.pop()
-    words = [w.split("\t")[0] for w in lines]
-    words = [w for w in words if w not in stop_words]
+    words = [Word(l) for l in lines]
+    words = [w.w for w in words if w.valid()]
      
     assert type(words) == list
     assert all(isinstance(e, str) for e in words)
