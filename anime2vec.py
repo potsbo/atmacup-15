@@ -28,19 +28,29 @@ def seed_everything(seed: int):
 
 seed_everything(SEED)
 
+def tokenize(s):
+    return s.split(" ") # TODO
+
+def title_to_vec(title, model):
+    return np.mean([model.wv[w] for w in tokenize(title)], axis=0)
+
 # train は元々 anime_id, user_id, score のみ
-def add_w2v_features(train_df, val_df, test_df=None):
+def add_w2v_features(train_df, val_df, test_df, anime_df):
     anime_ids = train_df['anime_id'].unique().tolist()
     user_anime_list_dict = {user_id: anime_ids.tolist() for user_id, anime_ids in train_df.groupby('user_id')['anime_id']}
+    anime_id_to_title = {anime_id: title for anime_id, title in anime_df[['anime_id', 'japanese_name']].values}
+
+    with_title = pd.merge(train_df, anime_df[['anime_id', 'japanese_name']], on="anime_id", how="left")
 
     # ここに title, genres とかを入れるだけで面白いかも?
     # 2次元配列
     title_sentence_list = []
-    for _user_id, user_df in train_df.groupby('user_id'):
+    for _user_id, user_df in with_title.groupby('user_id'):
         user_title_sentence_list = []
-        for anime_id, anime_score in user_df[['anime_id', 'score']].values:
+        for title, anime_score in user_df[['japanese_name', 'score']].values:
             for i in range(anime_score):
-                user_title_sentence_list.append(anime_id)
+                for w in tokenize(title):
+                    user_title_sentence_list.append(w)
         title_sentence_list.append(user_title_sentence_list)
 
     # ユーザごとにshuffleしたリストを作成
@@ -62,10 +72,10 @@ def add_w2v_features(train_df, val_df, test_df=None):
     model = word2vec.Word2Vec(train_sentence_list, **w2v_params)
 
     # ユーザーごとの特徴ベクトルと対応するユーザーID
-    user_factors = {user_id: np.mean([model.wv[aid] for aid in user_anime_list], axis=0) for user_id, user_anime_list in user_anime_list_dict.items()}
+    user_factors = {user_id: np.mean([title_to_vec(anime_id_to_title[aid], model) for aid in user_anime_list], axis=0) for user_id, user_anime_list in user_anime_list_dict.items()}
 
     # アイテムごとの特徴ベクトルと対応するアイテムID
-    item_factors = {aid: model.wv[aid] for aid in anime_ids}
+    item_factors = {aid: title_to_vec(anime_id_to_title[aid], model) for aid in anime_ids}
 
     # データフレームを作成
     # pd.DataFrame(user_factors) の時点では column => user_id, row => vector成分
@@ -84,22 +94,20 @@ def add_w2v_features(train_df, val_df, test_df=None):
     val_df = val_df.merge(user_factors_df, on="user_id", how="left")
     val_df = val_df.merge(item_factors_df, on="anime_id", how="left")
 
-    if test_df is not None:
-        test_df = test_df.merge(user_factors_df, on="user_id", how="left")
-        test_df = test_df.merge(item_factors_df, on="anime_id", how="left")
-        return train_df, val_df, test_df
-
-    return train_df, val_df
+    test_df = test_df.merge(user_factors_df, on="user_id", how="left")
+    test_df = test_df.merge(item_factors_df, on="anime_id", how="left")
+    return train_df, val_df, test_df
 
 def load_data():
     train_df = pd.read_csv('./dataset/train.csv')
     test_df = pd.read_csv('./dataset/test.csv')
     test_df['score'] = 0 # dummy
+    anime_df = pd.read_csv('./dataset/anime.csv')
 
     # Initialize submission file
     submission_df = pd.read_csv('./dataset/sample_submission.csv')
     submission_df['score'] = 0
-    return train_df, test_df, submission_df
+    return train_df, test_df, submission_df, anime_df
 
 def stratified_and_group_kfold_split(train_df):
     # https://www.guruguru.science/competitions/21/discussions/45ffc8a1-e37c-4b95-aac4-c4e338aa6a9b/
@@ -127,7 +135,7 @@ def stratified_and_group_kfold_split(train_df):
     train_df.drop(columns=["unseen_user"], inplace=True)
     return train_df
 
-def train(train_df, original_test_df, submission_df):
+def train(train_df, original_test_df, submission_df, anime_df):
     train_df['oof'] = 0 # out of fold
 
     for fold in range(5):
@@ -135,7 +143,7 @@ def train(train_df, original_test_df, submission_df):
         trn_df = train_df[train_df['fold'] != fold].copy()
         val_df = train_df[train_df['fold'] == fold].copy()
 
-        trn_df, val_df, test_df = add_w2v_features(trn_df, val_df, original_test_df.copy())
+        trn_df, val_df, test_df = add_w2v_features(trn_df, val_df, original_test_df.copy(), anime_df)
 
         # Define the features and the target
         unused_cols = ['user_id', 'anime_id', 'score', 'fold', 'oof']
@@ -149,7 +157,7 @@ def train(train_df, original_test_df, submission_df):
         params = {
             'objective': 'regression',
             'metric': 'rmse',
-            'learning_rate': 0.01,
+            'learning_rate': 0.1,
             # 'reg_lambda': 1.0
         }
 
@@ -182,13 +190,13 @@ def train(train_df, original_test_df, submission_df):
 
 def main():
     with timer("Load the data"):
-        train_df, test_df, submission_df = load_data()
+        train_df, test_df, submission_df, anime_df = load_data()
 
     with timer("Stratified & Group split"):
         train_df = stratified_and_group_kfold_split(train_df)
 
     with timer("Training and evaluation with LightGBM"):
-        train(train_df, test_df, submission_df)
+        train(train_df, test_df, submission_df, anime_df)
 
 if __name__ == "__main__":
     main()
