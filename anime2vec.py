@@ -34,6 +34,7 @@ def add_w2v_features(train_df, val_df, test_df=None):
     user_anime_list_dict = {user_id: anime_ids.tolist() for user_id, anime_ids in train_df.groupby('user_id')['anime_id']}
 
     # ここに title, genres とかを入れるだけで面白いかも?
+    # 2次元配列
     title_sentence_list = []
     for _user_id, user_df in train_df.groupby('user_id'):
         user_title_sentence_list = []
