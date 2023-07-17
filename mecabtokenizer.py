@@ -3,6 +3,10 @@ import subprocess
 
 cache = {}
 
+stop_words = set([
+    '(', ')', '"', "'", "!", "!!"
+    ])
+
 def tokenize(s):
     if s in cache:
         return cache[s]
@@ -14,6 +18,7 @@ def tokenize(s):
     lines.pop()
     lines.pop()
     words = [w.split("\t")[0] for w in lines]
+    words = [w for w in words if w not in stop_words]
      
     assert type(words) == list
     assert all(isinstance(e, str) for e in words)

@@ -45,11 +45,15 @@ def add_w2v_features(train_df, val_df, test_df, anime_df):
     title_sentence_list = []
     for _user_id, user_df in with_title.groupby('user_id'):
         user_title_sentence_list = []
+        # word list の list
+        titles = []
         for title, anime_score in user_df[['japanese_name', 'score']].values:
             for i in range(anime_score):
-                for w in tokenize(title):
-                    user_title_sentence_list.append(w)
-        title_sentence_list.append(user_title_sentence_list)
+                titles.append(tokenize(title))
+
+        titles = random.sample(titles, len(titles))
+        titles_1_dim = [element for sublist in titles for element in sublist]
+        title_sentence_list.append(titles_1_dim)
 
     # ユーザごとにshuffleしたリストを作成
     shuffled_sentence_list = [random.sample(sentence, len(sentence)) for sentence in title_sentence_list]  ## <= 変更点
@@ -58,17 +62,20 @@ def add_w2v_features(train_df, val_df, test_df, anime_df):
     train_sentence_list = title_sentence_list + shuffled_sentence_list
 
     # word2vecのパラメータ
-    vector_size = 64
+    vector_size = 128
     w2v_params = {
         "vector_size": vector_size,  ## <= 変更点
         "seed": SEED,
         "min_count": 1,
-        "workers": 1
+        "workers": 4
     }
 
+    print("start word2vec")
     # word2vecのモデル学習
     model = word2vec.Word2Vec(train_sentence_list, **w2v_params)
+    print(len(set([element for sublist in train_sentence_list for element in sublist])),len(model.wv))
 
+    print("vectorizing animes")
     # ユーザーごとの特徴ベクトルと対応するユーザーID
     user_factors = {user_id: np.mean([title_to_vec(anime_id_to_title[aid], model) for aid in user_anime_list], axis=0) for user_id, user_anime_list in user_anime_list_dict.items()}
 
