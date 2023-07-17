@@ -74,17 +74,17 @@ def create_anime_numeric_feature(input_df: pd.DataFrame):
 
 def create_one_hot(column):
     def f(input_df):
-        
-        # 対象の列のユニーク集合を取る
-        target_colname = column
-        target_series = anime_df[target_colname]
-        unique_values = target_series.unique()
+        # TODO: pandas をうまく使えばもっといい方法がありそう
+        uniq_vals = set([])
+        target_series = anime_df[column]
+        for v in target_series:
+            for item in v.split(", "):
+                uniq_vals.add(item)
 
         # ユニークな値ごとに列を作る
         out_df = pd.DataFrame()
-        for value in unique_values:
-            is_value = target_series == value
-            out_df[value] = is_value.astype(int)
+        for value in uniq_vals:
+            out_df[value] = target_series.map(lambda v: value in set(v.split(", ")))
 
         out_df["anime_id"] = anime_df["anime_id"]
 
