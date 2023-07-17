@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import StratifiedKFold
 import os
+from mecabtokenizer import tokenize
 
 SEED = 0
 
@@ -27,9 +28,6 @@ def seed_everything(seed: int):
     np.random.seed(seed)
 
 seed_everything(SEED)
-
-def tokenize(s):
-    return s.split(" ") # TODO
 
 def title_to_vec(title, model):
     return np.mean([model.wv[w] for w in tokenize(title)], axis=0)
