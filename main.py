@@ -60,7 +60,6 @@ test_df = read_csv("test")
 def merge_by_anime_id(left_df, right_df):
     return pd.merge(left_df["anime_id"], right_df, on="anime_id", how="left").drop(columns=["anime_id"])
 
-
 def create_anime_numeric_feature(input_df: pd.DataFrame):
     use_columns = [
         "members", 
@@ -73,36 +72,44 @@ def create_anime_numeric_feature(input_df: pd.DataFrame):
     
     return merge_by_anime_id(input_df, anime_df)[use_columns]
 
-def create_anime_type_one_hot_encoding(input_df):
-    
-    # 対象の列のユニーク集合を取る
-    target_colname = "type"
-    target_series = anime_df[target_colname]
-    unique_values = target_series.unique()
-
-    # ユニークな値ごとに列を作る
-    out_df = pd.DataFrame()
-    for value in unique_values:
-        is_value = target_series == value
-        out_df[value] = is_value.astype(int)
+def create_one_hot(column):
+    def f(input_df):
         
-    out_df["anime_id"] = anime_df["anime_id"]
-    
-    return merge_by_anime_id(input_df, out_df)
+        # 対象の列のユニーク集合を取る
+        target_colname = column
+        target_series = anime_df[target_colname]
+        unique_values = target_series.unique()
+
+        # ユニークな値ごとに列を作る
+        out_df = pd.DataFrame()
+        for value in unique_values:
+            is_value = target_series == value
+            out_df[value] = is_value.astype(int)
+
+        out_df["anime_id"] = anime_df["anime_id"]
+
+        return merge_by_anime_id(input_df, out_df)
+    return f
 
 def create_feature(input_df):
     functions = [
         create_anime_numeric_feature,
-        create_anime_type_one_hot_encoding,
+        create_one_hot("type"),
+        create_one_hot("rating"),
+        create_one_hot("source"),
+        create_one_hot("studios"), # TODO: comma で split したほうが良さそう
+        create_one_hot("licensors"), # TODO: comma で split したほうが良さそう
+        create_one_hot("producers"), # TODO: comma で split したほうが良さそう
+        create_one_hot("genres"), # TODO: comma で split したほうが良さそう
     ]
-    
+
     out_df = pd.DataFrame()
     for func in functions:
         func_name = str(func.__name__)
         with Timer(prefix=f"create {func_name}"):
             _df = func(input_df)
         out_df = pd.concat([out_df, _df], axis=1)
-        
+
     return out_df
 
 with Timer(prefix="train..."):
