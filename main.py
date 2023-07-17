@@ -41,8 +41,6 @@ class Timer:
 INPUT_DIR = "/Users/potsbo/.go/src/github.com/potsbo/atmacup-15/dataset"
 OUTPUT_DIR = "/Users/potsbo/.go/src/github.com/potsbo/atmacup-15/output"
 
-print(glob(os.path.join(INPUT_DIR, "*")))
-
 def read_csv(name: str, **kwrgs) -> pd.DataFrame:
     p = os.path.join(INPUT_DIR, name + ".csv")
     return pd.read_csv(p, **kwrgs)
@@ -51,28 +49,16 @@ anime_df = read_csv("anime")
 train_df = read_csv("train")
 test_df = read_csv("test")
 
-print(anime_df.head())
-print(train_df.head())
-
-print('anime_df["members"]')
-print(anime_df["members"])
-
 def merge_by_anime_id(left_df, right_df):
     return pd.merge(left_df["anime_id"], right_df, on="anime_id", how="left").drop(columns=["anime_id"])
 
+
 def create_anime_numeric_feature(input_df: pd.DataFrame):
-    """input_dfは train or test.csv のデータが入ってくることを想定しています."""
-    
     use_columns = [
         "members", 
     ]
     
     return merge_by_anime_id(input_df, anime_df)[use_columns]
-
-create_anime_numeric_feature(train_df)
-
-print(anime_df["type"])
-anime_df["type"].value_counts().plot(kind="bar")
 
 def create_anime_type_one_hot_encoding(input_df):
     
