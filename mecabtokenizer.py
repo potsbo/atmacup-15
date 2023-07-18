@@ -19,7 +19,6 @@ class Word():
 
 
 def _tokenize(s):
-    return s.split(" ")
     result = subprocess.run(f"echo \"{s}\" | mecab", shell=True, stdout=subprocess.PIPE)
 
     # 実行結果はbytes形式なので、decode関数を使って文字列に変換します。
@@ -31,7 +30,8 @@ def _tokenize(s):
      
     assert type(words) == list
     assert all(isinstance(e, str) for e in words)
-    return s
+    words.append(s)
+    return words
 
 def tokenize(s):
     if s in cache:
