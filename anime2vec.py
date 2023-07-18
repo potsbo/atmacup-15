@@ -29,16 +29,19 @@ def seed_everything(seed: int):
 
 seed_everything(SEED)
 
-def title_to_vec(title, model):
-    return np.mean([model.wv[w] for w in tokenize(title)], axis=0)
+def title_to_vec(anime, model):
+    return np.mean([model.wv[w] for w in tokenize(anime)], axis=0)
 
 # train は元々 anime_id, user_id, score のみ
 def add_w2v_features(train_df, val_df, test_df, anime_df):
     anime_ids = train_df['anime_id'].unique().tolist()
     user_anime_list_dict = {user_id: anime_ids.tolist() for user_id, anime_ids in train_df.groupby('user_id')['anime_id']}
-    anime_id_to_title = {anime_id: title for anime_id, title in anime_df[['anime_id', 'japanese_name']].values}
 
-    with_title = pd.merge(train_df, anime_df[['anime_id', 'japanese_name']], on="anime_id", how="left")
+    anime_index = {}
+    for idx, row in anime_df.iterrows():
+        anime_index[row['anime_id']] = row
+
+    with_title = pd.merge(train_df, anime_df, on="anime_id", how="left")
 
     # ここに title, genres とかを入れるだけで面白いかも?
     # 2次元配列
@@ -77,10 +80,10 @@ def add_w2v_features(train_df, val_df, test_df, anime_df):
 
     print("vectorizing animes")
     # ユーザーごとの特徴ベクトルと対応するユーザーID
-    user_factors = {user_id: np.mean([title_to_vec(anime_id_to_title[aid], model) for aid in user_anime_list], axis=0) for user_id, user_anime_list in user_anime_list_dict.items()}
+    user_factors = {user_id: np.mean([title_to_vec(anime_index[aid], model) for aid in user_anime_list], axis=0) for user_id, user_anime_list in user_anime_list_dict.items()}
 
     # アイテムごとの特徴ベクトルと対応するアイテムID
-    item_factors = {aid: title_to_vec(anime_id_to_title[aid], model) for aid in anime_ids}
+    item_factors = {aid: title_to_vec(anime_index[aid], model) for aid in anime_ids}
 
     # データフレームを作成
     # pd.DataFrame(user_factors) の時点では column => user_id, row => vector成分
