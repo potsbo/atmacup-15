@@ -16,8 +16,7 @@ class Word():
 
     def valid(self):
         return self.w not in stop_words and self.hinshi != "助詞"
-        
-        
+
 
 def tokenize(s):
     if s in cache:
