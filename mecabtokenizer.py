@@ -18,7 +18,8 @@ class Word():
         return self.w not in stop_words and self.hinshi != "助詞"
 
 
-def _tokenize(s):
+def _tokenize(row):
+    s = row['japanese_name']
     result = subprocess.run(f"echo \"{s}\" | mecab", shell=True, stdout=subprocess.PIPE)
 
     # 実行結果はbytes形式なので、decode関数を使って文字列に変換します。
@@ -34,9 +35,10 @@ def _tokenize(s):
     return words
 
 def tokenize(s):
-    if s in cache:
-        return cache[s]
+    key = s['anime_id']
+    if key in cache:
+        return cache[key]
     words = _tokenize(s)
-    cache[s] = words
+    cache[key] = words
     return words
 

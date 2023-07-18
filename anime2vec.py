@@ -47,9 +47,9 @@ def add_w2v_features(train_df, val_df, test_df, anime_df):
         user_title_sentence_list = []
         # word list の list
         titles = []
-        for title, anime_score in user_df[['japanese_name', 'score']].values:
-            for i in range(anime_score):
-                titles.append(tokenize(title))
+        for idx, row in user_df.iterrows():
+            for i in range(row['score']):
+                titles.append(tokenize(row))
 
         titles = random.sample(titles, len(titles))
         titles_1_dim = [element for sublist in titles for element in sublist]
