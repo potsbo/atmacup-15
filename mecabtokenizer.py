@@ -18,10 +18,8 @@ class Word():
         return self.w not in stop_words and self.hinshi != "助詞"
 
 
-def tokenize(s):
-    if s in cache:
-        return cache[s]
-
+def _tokenize(s):
+    return s.split(" ")
     result = subprocess.run(f"echo \"{s}\" | mecab", shell=True, stdout=subprocess.PIPE)
 
     # 実行結果はbytes形式なので、decode関数を使って文字列に変換します。
@@ -33,6 +31,12 @@ def tokenize(s):
      
     assert type(words) == list
     assert all(isinstance(e, str) for e in words)
+    return s
 
+def tokenize(s):
+    if s in cache:
+        return cache[s]
+    words = _tokenize(s)
     cache[s] = words
     return words
+
